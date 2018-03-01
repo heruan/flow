@@ -28,6 +28,8 @@ import java.util.EventObject;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -43,6 +45,7 @@ import org.mockito.Mockito;
 
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentUtil;
+import com.vaadin.flow.component.HasParentLayout;
 import com.vaadin.flow.component.Html;
 import com.vaadin.flow.component.Tag;
 import com.vaadin.flow.component.UI;
@@ -58,6 +61,7 @@ import com.vaadin.flow.server.MockVaadinServletService;
 import com.vaadin.flow.server.MockVaadinSession;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.VaadinSession;
+import com.vaadin.flow.server.startup.RouteRegistry;
 import com.vaadin.flow.theme.AbstractTheme;
 import com.vaadin.flow.theme.Theme;
 import com.vaadin.tests.util.MockUI;
@@ -940,6 +944,36 @@ public class RouterTest extends RoutingTestBase {
     public static class ExtendingView extends AbstractMain {
     }
 
+    @RoutePrefix("users")
+    @Tag(Tag.DIV)
+    public static class UserSectionLayout extends Component
+            implements RouterLayout, HasUrlParameter<Long> {
+
+        private Long parameter;
+
+        @Override
+        public void setParameter(BeforeEvent event, Long parameter) {
+            this.parameter = parameter;
+        }
+    }
+
+    @Route(value = "profile", layout = UserSectionLayout.class)
+    @Tag(Tag.DIV)
+    public static class UserProfileRoute extends Component
+            implements HasParentLayout<UserSectionLayout> {
+
+        private UserSectionLayout parentLayout;
+
+        @Override
+        public void setParentLayout(UserSectionLayout parentLayout) {
+            this.parentLayout = parentLayout;
+        }
+
+        Long getParameter() {
+            return parentLayout.parameter;
+        }
+    }
+
     @Override
     @Before
     public void init() throws NoSuchFieldException, SecurityException,
@@ -966,6 +1000,22 @@ public class RouterTest extends RoutingTestBase {
 
     @Rule
     public ExpectedException expectedEx = ExpectedException.none();
+
+    @Test
+    public void parent_with_parameter()
+            throws InvalidRouteConfigurationException {
+        router.getRegistry().setNavigationTargets(
+                Stream.of(UserProfileRoute.class).collect(Collectors.toSet()));
+        router.navigate(ui, new Location("users/123/profile"),
+                NavigationTrigger.PROGRAMMATIC);
+        Assert.assertEquals(UserSectionLayout.class, getUIComponent());
+        UserSectionLayout component = getUIComponentInstance();
+        Component firstChild = component.getChildren().findFirst().get();
+        Assert.assertEquals(UserProfileRoute.class, firstChild.getClass());
+        UserProfileRoute profileRoute = (UserProfileRoute) firstChild;
+        long parameter = profileRoute.getParameter();
+        Assert.assertEquals(123L, parameter);
+    }
 
     @Test
     public void basic_navigation() throws InvalidRouteConfigurationException {
@@ -2389,6 +2439,11 @@ public class RouterTest extends RoutingTestBase {
     private Class<? extends Component> getUIComponent() {
         return ComponentUtil.findParentComponent(ui.getElement().getChild(0))
                 .get().getClass();
+    }
+
+    private <C extends Component> C getUIComponentInstance() {
+        return (C) ComponentUtil
+                .findParentComponent(ui.getElement().getChild(0)).get();
     }
 
     private void assertExceptionComponent(String exceptionText) {

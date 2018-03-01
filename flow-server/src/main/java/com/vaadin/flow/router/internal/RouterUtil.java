@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.vaadin.flow.component.Component;
@@ -30,6 +31,7 @@ import com.vaadin.flow.component.HasElement;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.internal.AnnotationReader;
 import com.vaadin.flow.router.HasDynamicTitle;
+import com.vaadin.flow.router.HasUrlParameter;
 import com.vaadin.flow.router.LocationChangeEvent;
 import com.vaadin.flow.router.NavigationEvent;
 import com.vaadin.flow.router.PageTitle;
@@ -84,7 +86,7 @@ public final class RouterUtil {
         List<RouteAlias> routeAliases = AnnotationReader
                 .getAnnotationsFor(component, RouteAlias.class);
         if (route.isPresent()
-                && path.equals(getRoutePath(component, route.get()))
+                && Pattern.matches(getRoutePath(component, route.get()), path)
                 && !route.get().layout().equals(UI.class)) {
             list.addAll(collectRouteParentLayouts(route.get().layout()));
         } else {
@@ -160,7 +162,13 @@ public final class RouterUtil {
         Optional<RoutePrefix> routePrefix = AnnotationReader
                 .getAnnotationFor(component, RoutePrefix.class);
 
-        routePrefix.ifPresent(prefix -> list.add(prefix.value()));
+        routePrefix.ifPresent(prefix -> {
+            if (HasUrlParameter.class.isAssignableFrom(component)) {
+                list.add(prefix.value() + "/([^/]+)");
+            } else {
+                list.add(prefix.value());
+            }
+        });
 
         // break chain on an absolute RoutePrefix or Route
         if (routePrefix.isPresent() && routePrefix.get().absolute()) {
@@ -181,7 +189,7 @@ public final class RouterUtil {
     private static Optional<RouteAlias> getMatchingRouteAlias(
             Class<?> component, String path, List<RouteAlias> routeAliases) {
         return routeAliases.stream().filter(
-                alias -> path.equals(getRouteAliasPath(component, alias))
+                alias -> Pattern.matches(getRouteAliasPath(component, alias), path)
                         && !alias.layout().equals(UI.class))
                 .findFirst();
     }
@@ -251,7 +259,7 @@ public final class RouterUtil {
         List<RouteAlias> routeAliases = AnnotationReader
                 .getAnnotationsFor(component, RouteAlias.class);
         if (route.isPresent()
-                && path.equals(getRoutePath(component, route.get()))
+                && Pattern.matches(getRoutePath(component, route.get()), path)
                 && !route.get().layout().equals(UI.class)) {
             return recuseToTopLayout(route.get().layout());
         } else {

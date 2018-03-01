@@ -16,11 +16,14 @@
 package com.vaadin.flow.router.internal;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.slf4j.LoggerFactory;
 
@@ -54,9 +57,9 @@ public class DefaultRouteResolver implements RouteResolver {
         try {
             if (!path.segments.isEmpty()) {
                 navigationTarget = getNavigationTargetWithParameter(registry,
-                        path.path, path.segments);
+                        path.pattern, path.segments);
             } else {
-                navigationTarget = getNavigationTarget(registry, path.path);
+                navigationTarget = getNavigationTarget(registry, path.pattern);
             }
 
             if (HasUrlParameter.class.isAssignableFrom(navigationTarget)) {
@@ -66,7 +69,10 @@ public class DefaultRouteResolver implements RouteResolver {
                         pathParameters)) {
                     return null;
                 }
+                pathParameters.addAll(0, path.collectedParameters);
                 builder.withTarget(navigationTarget, pathParameters);
+            } else if (!path.collectedParameters.isEmpty()) {
+                builder.withTarget(navigationTarget, path.collectedParameters);
             } else {
                 builder.withTarget(navigationTarget);
             }
@@ -83,7 +89,9 @@ public class DefaultRouteResolver implements RouteResolver {
 
     private static class PathDetails {
         private final String path;
+        private final String pattern;
         private final List<String> segments;
+        private final List<String> collectedParameters;
 
         /**
          * Constructor for path with segment details.
@@ -94,8 +102,27 @@ public class DefaultRouteResolver implements RouteResolver {
          *            segments for path
          */
         public PathDetails(String path, List<String> segments) {
+            this(path, segments, path, Collections.emptyList());
+        }
+
+        /**
+         * Constructor for path with segment details.
+         *
+         * @param path
+         *            path
+         * @param segments
+         *            segments for path
+         * @param pattern
+         *            the route pattern
+         * @param collectedParameters
+         *            the parameters present on {@code path}
+         */
+        public PathDetails(String path, List<String> segments, String pattern,
+                List<String> collectedParameters) {
             this.path = path;
+            this.pattern = pattern;
             this.segments = segments;
+            this.collectedParameters = collectedParameters;
         }
     }
 
@@ -114,18 +141,48 @@ public class DefaultRouteResolver implements RouteResolver {
             if (i != 0) {
                 pathBuilder.append("/").append(pathSegments.get(i));
             }
-            paths.push(new PathDetails(pathBuilder.toString(),
-                    pathSegments.subList(i + 1, pathSegments.size())));
+            findRoutePattern(registry, pathBuilder.toString(),
+                    pathSegments.subList(i + 1, pathSegments.size()))
+                            .ifPresent(paths::push);
         }
         while (!paths.isEmpty()) {
             PathDetails pathDetails = paths.pop();
-            Optional<?> target = registry.getNavigationTarget(pathDetails.path,
+            Optional<?> target = registry.getNavigationTarget(pathDetails.pattern,
                     pathDetails.segments);
             if (target.isPresent()) {
                 return pathDetails;
             }
         }
         return null;
+    }
+
+    /**
+     * Looks for a registered route pattern matching the given {@code path}.
+     *
+     * @param registry
+     *            the route registry
+     * @param path
+     *            the path to match
+     * @return the optional path details
+     */
+    private Optional<PathDetails> findRoutePattern(RouteRegistry registry,
+            String path, List<String> segments) {
+        if (!registry.hasRoutes()) {
+            return Optional.empty();
+        }
+        List<String> parameters = new ArrayList<>();
+        return registry.getRegisteredRoutes().stream().filter(routeData -> {
+            String regex = routeData.getUrl();
+            Matcher matcher = Pattern.compile(regex).matcher(path);
+            if (!matcher.matches()) {
+                return false;
+            }
+            for (int i = 1; i <= matcher.groupCount(); ++i) {
+                parameters.add(matcher.group(i));
+            }
+            return true;
+        }).map(routeData -> new PathDetails(path, segments, routeData.getUrl(),
+                parameters)).findFirst();
     }
 
     private Class<? extends Component> getNavigationTarget(

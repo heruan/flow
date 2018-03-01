@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 import com.vaadin.flow.component.Component;
 import com.vaadin.flow.component.ComponentUtil;
 import com.vaadin.flow.component.HasElement;
+import com.vaadin.flow.component.HasParentLayout;
 import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.dependency.HtmlImport;
 import com.vaadin.flow.component.dependency.JavaScript;
@@ -633,6 +634,9 @@ public class UIInternals implements Serializable {
                 HasElement oldChild = oldChildren.get(parent);
                 if (oldChild != root) {
                     removeFromParent(oldChild);
+                    if (root instanceof HasParentLayout) {
+                        ((HasParentLayout) root).setParentLayout(parent);
+                    }
                     parent.showRouterLayoutContent(root);
                 }
             } else if (part instanceof RouterLayout

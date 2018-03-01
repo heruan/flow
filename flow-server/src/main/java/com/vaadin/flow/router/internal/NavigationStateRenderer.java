@@ -19,6 +19,8 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -157,21 +159,28 @@ public class NavigationStateRenderer implements NavigationHandler {
         Optional<List<String>> urlParameters = navigationState
                 .getUrlParameters();
         if (urlParameters.isPresent()) {
-            final Object deserializedParameter;
-            try {
-                deserializedParameter = ParameterDeserializer
-                        .deserializeUrlParameters(routeTargetType,
-                                urlParameters.get());
-            } catch (Exception e) {
-                beforeNavigationActivating.rerouteToError(
-                        NotFoundException.class,
-                        String.format(
-                                "Failed to parse url parameter, exception: %s",
-                                e));
-                return reroute(event, beforeNavigationActivating);
+            Deque<String> deque = new LinkedList<>(urlParameters.get());
+            for (int i = chain.size() - 1; i >= 0; --i) {
+                HasElement hasElement = chain.get(i);
+                if (hasElement instanceof HasUrlParameter) {
+                    final Object deserializedParameter;
+                    try {
+                        deserializedParameter = ParameterDeserializer
+                                .deserializeUrlParameters(hasElement.getClass(),
+                                        i > 0 ? Collections.singletonList(deque.pop())
+                                                : new ArrayList<>(deque));
+                    } catch (Exception e) {
+                        beforeNavigationActivating.rerouteToError(
+                                NotFoundException.class,
+                                String.format(
+                                        "Failed to parse url parameter, exception: %s",
+                                        e));
+                        return reroute(event, beforeNavigationActivating);
+                    }
+                    ((HasUrlParameter) hasElement).setParameter(
+                            beforeNavigationActivating, deserializedParameter);
+                }
             }
-            ((HasUrlParameter) componentInstance).setParameter(
-                    beforeNavigationActivating, deserializedParameter);
         }
 
         if (beforeNavigationActivating.hasRerouteTarget()) {
