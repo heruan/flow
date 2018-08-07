@@ -101,6 +101,36 @@ public class RouterLink extends Component
     }
 
     /**
+     * Creates a new router link for the given navigation target.
+     *
+     * @param navigationTarget
+     *            navigation target
+     */
+    public RouterLink(Class<? extends Component> navigationTarget) {
+        this();
+        setRoute(getRouter(), navigationTarget);
+    }
+
+    /**
+     * Creates a new router link for the given navigation target using the given
+     * parameter.
+     *
+     * @param navigationTarget
+     *            navigation target
+     * @param parameter
+     *            url parameter for navigation target
+     * @param <T>
+     *            url parameter type
+     * @param <C>
+     *            navigation target type
+     */
+    public <T, C extends Component & HasUrlParameter<T>> RouterLink(
+            Class<? extends C> navigationTarget, T parameter) {
+        this();
+        setRoute(getRouter(), navigationTarget, parameter);
+    }
+
+    /**
      * Creates a new router link for the given navigation target using the given
      * text.
      *
@@ -140,6 +170,42 @@ public class RouterLink extends Component
             Class<? extends C> navigationTarget, T parameter) {
         this();
         setText(text);
+        setRoute(router, navigationTarget, parameter);
+    }
+
+    /**
+     * Creates a new router link for the given navigation target.
+     *
+     * @param router
+     *            router used for navigation
+     * @param navigationTarget
+     *            navigation target
+     */
+    public RouterLink(com.vaadin.flow.router.Router router,
+            Class<? extends Component> navigationTarget) {
+        this();
+        setRoute(router, navigationTarget);
+    }
+
+    /**
+     * Creates a new router link for the given navigation target using the given
+     * parameter.
+     *
+     * @param router
+     *            router used for navigation
+     * @param navigationTarget
+     *            navigation target
+     * @param parameter
+     *            url parameter for navigation target
+     * @param <T>
+     *            url parameter type
+     * @param <C>
+     *            navigation target type
+     */
+    public <T, C extends Component & HasUrlParameter<T>> RouterLink(
+            com.vaadin.flow.router.Router router,
+            Class<? extends C> navigationTarget, T parameter) {
+        this();
         setRoute(router, navigationTarget, parameter);
     }
 
